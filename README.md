@@ -14,6 +14,11 @@ O projeto automatiza a criação dos seguintes recursos na AWS:
 - **1 Instância EC2**: t2.micro com Amazon Linux 2
 - **Deploy automático**: Site web via Nginx usando Ansible
 
+## ⚠️ Importante
+Este código não foi executado em uma AWS real devido a restrições de acesso, mas:
+- Todos os arquivos foram validados com `terraform validate`
+- A estrutura segue as boas práticas do Terraform
+
 ## 🗂️ Estrutura de Arquivos
 
 ```
@@ -128,15 +133,12 @@ Ferramenta de automação que configura o servidor (instala Nginx, faz deploy do
 
 ### Erro de credenciais
 - Verifique `aws configure`
-- Confirme as credenciais do AWS Educate
 
 ### Erro de permissões
 - Certifique-se de que sua conta AWS tem as permissões necessárias
-- No AWS Educate, verifique se os serviços EC2 estão disponíveis
 
 ## 📝 Observações
 
-- Este projeto é compatível com AWS Educate
 - A instância t2.micro está dentro do free tier
 - Sempre execute `terraform destroy` para evitar custos
 - O deploy completo leva cerca de 5-10 minutos
