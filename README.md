@@ -1,260 +1,145 @@
-# IAC com Terraform e AWS
+# Desafio Terraform + AWS - Infrastructure as Code
 
-Neste repositório, vamos aprender a usar o Terraform e a AWS para criar a nossa primeira infra na nuvem.
+Este projeto demonstra o uso do Terraform para provisionar infraestrutura na AWS, incluindo a criação de uma instância EC2 com deploy automático de um site web usando Ansible.
 
-Este documento também está disponível em [formato PDF](docs/README.pdf) e [formato HTML](docs/README.html) para que você possa visualizá-lo offline.
+## 📋 Descrição do Projeto
 
-## Tabela de conteúdos
+O projeto automatiza a criação dos seguintes recursos na AWS:
 
-- [Pré-requisitos](#pré-requisitos)
-- [Passo a passo](#passo-a-passo)
-- [Erros conhecidos](#erros-conhecidos)
-- [Saiba mais](#saiba-mais)
+- **3 Security Groups**: 
+  - HTTP (porta 80)
+  - SSH (porta 22) 
+  - Egress (saída de dados)
+- **1 Key Pair**: Para acesso SSH seguro
+- **1 Instância EC2**: t2.micro com Amazon Linux 2
+- **Deploy automático**: Site web via Nginx usando Ansible
 
-## Pré-requisitos
+## 🗂️ Estrutura de Arquivos
 
-- Instalação do Terraform
-    - https://developer.hashicorp.com/terraform/downloads?product_intent=terraform
-    - **Usa Windows?** acesse esse [documento](docs/Como%20Instalar%20o%20Terraform%20no%20Windows.pdf) 
-- Instalação do AWS CLI
-    - https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html
-- Criando usuário na AWS
-    - [**Acesse esse documento**](docs/Criação%20de%20usuário%20na%20AWS%20e%20chave%20de%20acesso%20para%20vincular%20ao%20AWS%20CLI%20na%20sua%20maquina.pdf)
-- Realizar login no AWS CLI
-    - `aws configure`
+```
+├── provider.tf        # Configuração do provider AWS
+├── key_pair.tf        # Criação do par de chaves SSH
+├── security_group.tf  # Configuração dos Security Groups
+├── data.tf           # Data source para AMI do Amazon Linux
+├── ec2.tf            # Configuração da instância EC2
+├── outputs.tf        # Outputs do projeto (IP público, URL)
+├── variables.tf      # Variáveis do projeto
+├── user_data.sh      # Script de inicialização da instância
+├── playbook.yaml     # Playbook Ansible para configuração
+└── README.md         # Este arquivo
+```
 
-## Passo a passo 
+## ⚙️ Pré-requisitos
 
-Vamos começar a diversão! 🥳
+- [Terraform](https://www.terraform.io/downloads) instalado
+- [AWS CLI](https://aws.amazon.com/cli/) configurado
+- Conta AWS (AWS Educate compatível)
 
-1. Comece fazendo o clone do repositório:
-    > [!TIP]
-    > Se você preferir usar o Github é só trocar a URL do repositório para `https://github.com/avanti-dvp/iac-com-terraform-e-aws.git`
+## 🚀 Como usar
 
-    ```bash
-    git clone https://gitlab.com/avanti-dvp/iac-com-terraform-e-aws.git
-    cd iac-com-terraform-e-aws
-    ```
+### 1. Preparação
+```bash
+# Clone ou extraia o projeto
+cd iac-com-terraform-e-aws
 
-    > [!NOTE]
-    > Se você não tem o Git instalado ou não sabe usá-lo, sem problema algum, você pode simplesmente fazer o [download do repositório](https://gitlab.com/avanti-dvp/iac-com-terraform-e-aws/-/archive/main/iac-com-terraform-e-aws-main.zip) e descompactá-lo em sua pasta/diretório de trabalho ou na pasta/diretório de seu usuário
+# Configure seu IP público no arquivo variables.tf
+# Descubra seu IP em: https://www.whatismyip.com/
+```
 
-2. Vamos abrir o Visual Studio Code no diretório do repositório:
-    ```bash
-    code .
-    ```
+### 2. Configurar credenciais AWS
+```bash
+aws configure
+```
+Insira:
+- Access Key ID
+- Secret Access Key  
+- Region: us-east-1
+- Output format: json
 
-3. Dentro do Visual Studio Code, crie um arquivo chamado `provider.tf`, incluindo esse trecho abaixo nele:
-    ```hcl
-    terraform {
-        required_providers {
-            aws = {
-                source  = "hashicorp/aws"
-                version = "~> 5.0"
-            }
-        }
-    }
-    
-    provider "aws" {
-        region = "us-east-1"
-    }
-    ```
+### 3. Executar Terraform
+```bash
+# Inicializar Terraform (baixa providers)
+terraform init
 
-    > [!TIP]
-    > O arquivo `provider.tf` é o arquivo que define o provedor que será usado para criar a infraestrutura na nuvem, nesse caso, a AWS.
-    > Este arquivo é uma convenção entre os desenvolvedores, ele é opcional, mas é uma boa prática ter ele.
+# Verificar o plano de execução
+terraform plan
 
-4. Agora vamos criar o arquivo `key_pair.tf`, incluindo esse trecho abaixo nele:
-    ```hcl
-    # Gera uma chave privada RSA de 4096 bits
-    resource "tls_private_key" "rsa_key" {
-        algorithm = "RSA"
-        rsa_bits  = 4096
-    }
+# Aplicar as configurações (criar infraestrutura)
+terraform apply
+# Digite 'yes' quando solicitado
+```
 
-    # Cria o Key Pair na AWS usando a chave pública gerada
-    resource "aws_key_pair" "ec2_key_pair" {
-        key_name   = "ec2-instance-key" # Nome do key pair na AWS
-        public_key = tls_private_key.rsa_key.public_key_openssh
-    }
+### 4. Acessar o site
+Após alguns minutos, você verá a saída:
+```
+instance_public_ip = "54.123.456.789"
+website_url = "http://54.123.456.789"
+```
 
-    # Salva a chave privada em um arquivo local
-    resource "local_file" "private_key_pem" {
-        content  = tls_private_key.rsa_key.private_key_pem
-        filename = "${path.module}/ec2-instance-key.pem"
+Acesse a URL no navegador usando `http://` (não https).
 
-        # Define as permissões do arquivo para que apenas o proprietário possa ler e escrever
-        file_permission = "0600"
-    }
-    ```
+### 5. Destruir recursos (opcional)
+```bash
+terraform destroy
+# Digite 'yes' quando solicitado
+```
 
-    > [!TIP]
-    > O arquivo `keypair.tf` é o arquivo que define a criação de um par de chaves na AWS.
+## 🔧 Configurações Importantes
 
-5. Agora vamos criar o arquivo `security_group.tf`, incluindo esse trecho abaixo nele:
-    ```hcl
-    # 1. Security Group para liberar a porta 80 (HTTP) para qualquer origem
-    resource "aws_security_group" "http_sg" {
-        name        = "allow-http-sg"
-        description = "Allow HTTP inbound traffic"
+### IP Público no variables.tf
+**OBRIGATÓRIO**: Altere o IP no arquivo `variables.tf`:
+```hcl
+variable "meu_ip_publico" {
+    default = "SEU.IP.AQUI/32"  # Substitua pelo seu IP real
+}
+```
 
-        ingress {
-            from_port   = 80
-            to_port     = 80
-            protocol    = "tcp"
-            cidr_blocks = ["0.0.0.0/0"]
-        }
+### Região AWS
+O projeto está configurado para `us-east-1`. Para usar outra região, altere no `provider.tf`.
 
-        tags = {
-            Name = "allow-http"
-        }
-    }
+## 📖 Componentes Explicados
 
-    # 2. Security Group para liberar a porta 22 (SSH) para um IP específico
-    resource "aws_security_group" "ssh_sg" {
-        name        = "allow-ssh-sg"
-        description = "Allow SSH inbound traffic from a specific IP"
+### Terraform
+Ferramenta de Infrastructure as Code que permite definir recursos de nuvem usando código declarativo.
 
-        ingress {
-            from_port   = 22
-            to_port     = 22
-            protocol    = "tcp"
-            cidr_blocks = [var.meu_ip_publico]
-        }
+### Security Groups
+Funcionam como firewall virtual, controlando o tráfego de entrada e saída da instância.
 
-        tags = {
-            Name = "allow-ssh"
-        }
-    }
+### User Data
+Script executado automaticamente na primeira inicialização da instância EC2.
 
-    # 3. Security Group para liberar todo o tráfego de saída (Egress)
-    resource "aws_security_group" "egress_all_sg" {
-        name        = "allow-all-egress-sg"
-        description = "Allow all outbound traffic"
+### Ansible
+Ferramenta de automação que configura o servidor (instala Nginx, faz deploy do site).
 
-        egress {
-            from_port   = 0
-            to_port     = 0
-            protocol    = "-1" # "-1" representa todos os protocolos
-            cidr_blocks = ["0.0.0.0/0"]
-        }
+## 🎯 Recursos Criados
 
-        tags = {
-            Name = "allow-all-egress"
-        }
-    }
-    ```
+- **aws_security_group.http_sg**: Permite tráfego HTTP (porta 80)
+- **aws_security_group.ssh_sg**: Permite SSH (porta 22) do seu IP
+- **aws_security_group.egress_all_sg**: Permite todo tráfego de saída
+- **aws_key_pair.ec2_key_pair**: Par de chaves para acesso SSH
+- **aws_instance.web_server**: Instância EC2 t2.micro
 
-    > [!TIP]
-    > O arquivo `security_group.tf` é o arquivo que define a criação dos security groups na AWS.
+## 💡 Troubleshooting
 
-6. Agora vamos criar o arquivo `data.tf`, incluindo esse trecho abaixo nele:
-    ```hcl
-    data "aws_ami" "amazon_linux" {
-        most_recent = true
-        owners      = ["amazon"]
+### Site não carrega
+- Aguarde 5-10 minutos após o `terraform apply`
+- Verifique se está usando `http://` e não `https://`
+- Confirme se o IP no `variables.tf` está correto
 
-        filter {
-            name   = "name"
-            values = ["amzn2-ami-hvm-*-x86_64-gp2"]
-        }
-    }
-    ```
+### Erro de credenciais
+- Verifique `aws configure`
+- Confirme as credenciais do AWS Educate
 
-    > [!TIP]
-    > O arquivo `data.tf` é o arquivo que define um datasource responsável por buscar o id da imagem (AMI) mais recente do Amazon Linux 2.
+### Erro de permissões
+- Certifique-se de que sua conta AWS tem as permissões necessárias
+- No AWS Educate, verifique se os serviços EC2 estão disponíveis
 
-7. Agora vamos criar o arquivo `ec2.tf`, incluindo esse trecho abaixo nele:
-    ```hcl
-    # Cria a instância EC2
-    resource "aws_instance" "web_server" {
-        ami           = data.aws_ami.amazon_linux.id
-        instance_type = "t2.micro"
-        user_data     = base64encode(file("user_data.sh"))
+## 📝 Observações
 
-        # Define o key pair para a instância
-        key_name      = aws_key_pair.ec2_key_pair.key_name
-
-        # Associa os 3 Security Groups à instância
-        vpc_security_group_ids = [
-            aws_security_group.http_sg.id,
-            aws_security_group.ssh_sg.id,
-            aws_security_group.egress_all_sg.id
-        ]
-
-        tags = {
-            Name = "WebServer-DVP"
-        }
-    }
-    ```
-
-    > [!TIP]
-    > O arquivo `ec2.tf` é o arquivo que define a criação da instância EC2 na AWS.
-
-8. Agora vamos criar o arquivo `outputs.tf`, incluindo esse trecho abaixo nele:
-    ```hcl
-    # Bloco para exibir o IP público da instância após a criação
-    output "instance_public_ip" {
-      description = "IP público da instância EC2"
-      value       = aws_instance.web_server.public_ip
-    }
-
-    output "website_url" {
-        description = "URL do site provisionado."
-        value       = "http://${aws_instance.web_server.public_ip}"
-    }
-    ```
-
-    > [!TIP]
-    > O arquivo `outputs.tf` é o arquivo que define as saídas que serão exibidas após a criação da infraestrutura, nesse caso, o IP público da instância EC2.
-
-9. Agora vamos criar o arquivo `variables.tf`, incluindo esse trecho abaixo nele:
-    ```hcl
-    variable "meu_ip_publico" {
-        type        = string
-        description = "Endereço IP público para o Security Group SSH"
-        # IMPORTANTE: Substitua pelo seu endereço IP público
-        # Para saber o seu IP público, acesse https://www.whatismyip.com/
-        default     = "203.0.113.25/32"
-    }
-    ```
-
-    > [!TIP]
-    > O arquivo `variables.tf` é o arquivo que define as variáveis que serão usadas na infraestrutura, nesse caso, o IP público para o Security Group SSH.
-
-10. Boa! terminamos de criar todos os arquivos necessários para a criação da infraestrutura na nuvem.
-
-11. Agora vamos iniciar o fluxo de trabalho do Terraform para criar a infraestrutura na nuvem:
-    ```bash
-    terraform init
-    terraform plan
-    terraform apply
-    ```
-
-    > [!NOTE]
-    > O comando `terraform init` inicializa o Terraform e baixa os providers necessários para a criação da infraestrutura na nuvem.
-    > O comando `terraform plan` cria um plano de execução que mostra as alterações que serão feitas na infraestrutura na nuvem.
-    > O comando `terraform apply` aplica as configurações definidas nos arquivos .tf e cria a infraestrutura na nuvem.
-
-12. Se tudo rodar com sucesso, você verá o IP público da instância EC2 e a URL do site provisionado, basta acessá-lo através dessa URL no seu navegador para ver o site está no ar.
-
-> [!WARNING]
-> A maioria dos navegadores modernos força o redirecionamento da página para HTTPS
-> Como não subimos o site em HTTPS, a conexão não irá acontecer
-> Portanto, para ver o site funcionando, você precisa adicionar o http:// no começo da URL antes do IP na barra de endereço do seu navegador
-
-E ele deverá aparecer dessa forma:
-
-![Site no Ar](docs/images/site.png)
-
-13. Para destruir a infraestrutura na nuvem, execute o comando abaixo:
-    ```bash
-    terraform destroy
-    ```
-
-    > [!NOTE]
-    > O comando `terraform destroy` destrói a infraestrutura na nuvem que foi criada pelo Terraform.
-    > **RECOMENDADO:** Sempre que você criar uma infraestrutura na nuvem, certifique-se de destruí-la quando não estiver mais usando.
+- Este projeto é compatível com AWS Educate
+- A instância t2.micro está dentro do free tier
+- Sempre execute `terraform destroy` para evitar custos
+- O deploy completo leva cerca de 5-10 minutos
 
 ## Saiba mais
 
@@ -262,4 +147,8 @@ E ele deverá aparecer dessa forma:
 - [Documentação do Provider AWS do Terraform](https://registry.terraform.io/providers/hashicorp/aws/latest/docs)
 - [Lista de Providers do Terraform](https://registry.terraform.io/browse/providers)
 - [Documentação da AWS](https://docs.aws.amazon.com/pt_br/)
+
+## 👨‍💻 Autor
+
+Projeto desenvolvido como parte do desafio de Infrastructure as Code com Terraform e AWS.
 
