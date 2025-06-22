@@ -3,5 +3,5 @@ variable "meu_ip_publico" {
     description = "Endereço IP público para o Security Group SSH"
     # IMPORTANTE: Substitua pelo seu endereço IP público
     # Para saber o seu IP público, acesse https://www.whatismyip.com/
-    default     = "45.166.205.251/32"
+    default     = "203.0.113.25/32"
 }
